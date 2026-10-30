@@ -5,17 +5,21 @@
 #   flaky: adds a test that fails about 2 runs in 3.
 # Needs a GitHub remote called "origin". With the gh tool it opens the PR; without it, it prints the link.
 param([ValidateSet("genuine", "flaky")][string]$Kind = "genuine")
-$ErrorActionPreference = "Stop"
+# Git prints progress on stderr, which "Stop" would treat as an error; exit codes are checked instead.
+$ErrorActionPreference = "Continue"
 Set-Location (Split-Path $PSScriptRoot -Parent)
 
 if (git status --porcelain) { throw "You have uncommitted changes. Commit or stash them first." }
 $remote = if ((git remote) -contains "origin") { git remote get-url origin } else { $null }
 if (-not $remote) { throw "No 'origin' remote yet. Add one: git remote add origin https://github.com/<you>/piq-demo.git" }
 
-git checkout main | Out-Null
-git pull --ff-only origin main 2>$null | Out-Null
+git checkout main *> $null
+if ($LASTEXITCODE -ne 0) { throw "Could not switch to main." }
+git pull --ff-only origin main *> $null
+if ($LASTEXITCODE -ne 0) { throw "Could not update main from GitHub (git pull failed)." }
 $branch = "failing-$Kind-" + (Get-Date -Format "MMdd-HHmmss")
-git checkout -b $branch | Out-Null
+git checkout -b $branch *> $null
+if ($LASTEXITCODE -ne 0) { throw "Could not create branch $branch." }
 
 if ($Kind -eq "genuine") {
     (Get-Content src\math.js -Raw) -replace "return a \+ b;", "return a - b;" | Set-Content src\math.js -NoNewline
@@ -45,4 +49,4 @@ if (Get-Command gh -ErrorAction SilentlyContinue) {
     $url = ($remote -replace "\.git$", "") -replace "^git@github.com:", "https://github.com/"
     Write-Host "`nPushed $branch. Open the pull request here:`n  $url/compare/main...$branch?expand=1" -ForegroundColor Green
 }
-git checkout main | Out-Null
+git checkout main *> $null
