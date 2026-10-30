@@ -9,7 +9,7 @@ $ErrorActionPreference = "Stop"
 Set-Location (Split-Path $PSScriptRoot -Parent)
 
 if (git status --porcelain) { throw "You have uncommitted changes. Commit or stash them first." }
-$remote = git remote get-url origin 2>$null
+$remote = if ((git remote) -contains "origin") { git remote get-url origin } else { $null }
 if (-not $remote) { throw "No 'origin' remote yet. Add one: git remote add origin https://github.com/<you>/piq-demo.git" }
 
 git checkout main | Out-Null
